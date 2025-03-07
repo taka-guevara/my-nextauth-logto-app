@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyJWT } from "@/lib/jwtHandler";
-import { getPAT, getJWTFromPAT } from "@/lib/logtoAuth";
+import { getManagementApiToken, getPAT, getJWTFromPAT } from "@/lib/logtoAuth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -19,8 +19,17 @@ export async function GET(request: Request) {
     );
   }
 
-  // 2. Logto から PAT を取得
-  const pat = await getPAT(userId);
+  // 2. Management API Token を取得
+  const managementApiToken = await getManagementApiToken();
+  if (!managementApiToken) {
+    return NextResponse.json(
+      { error: "Failed to get Management API Token" },
+      { status: 500 }
+    );
+  }
+
+  // 3. Logto から PAT を取得
+  const pat = await getPAT(userId, managementApiToken);
   if (!pat) {
     return NextResponse.json(
       { error: "Failed to get PAT from Logto" },
@@ -28,7 +37,7 @@ export async function GET(request: Request) {
     );
   }
 
-  // 3. PAT を使って JWT 形式のアクセストークンを取得
+  // 4. PAT を使って JWT 形式のアクセストークンを取得
   const tokens = await getJWTFromPAT(pat);
   if (!tokens) {
     return NextResponse.json(
@@ -36,17 +45,20 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
+  console.log("tokens", tokens);
 
-  // 4. JWT を使って自動ログイン用の NextAuth.js クッキーを設定
-  const response = NextResponse.redirect("/protected");
+  // 5. JWT を使って自動ログイン用の NextAuth.js クッキーを設定
+  const response = NextResponse.redirect(
+    `${process.env.NEXTAUTH_URL}/protected`
+  );
   response.cookies.set("next-auth.session-token", tokens.accessToken, {
     httpOnly: true,
-    secure: true,
+    secure: false,
   });
   if (tokens.refreshToken) {
     response.cookies.set("next-auth.refresh-token", tokens.refreshToken, {
       httpOnly: true,
-      secure: true,
+      secure: false,
     });
   }
 
