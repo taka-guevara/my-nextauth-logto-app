@@ -1,32 +1,30 @@
 "use client";
 
 import { useEffect } from "react";
-import { signIn, useSession } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const AutoLoginPage = () => {
+const CallbackPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { status } = useSession();
 
   useEffect(() => {
-    const token = searchParams.get("token");
+    const code = searchParams.get("code");
 
-    if (status === "unauthenticated" && token) {
-      signIn("credentials", {
-        token,
-        redirect: false,
-      }).then((result) => {
-        if (result?.ok) {
-          router.push("/");
-        } else {
-          router.push("/auth/error");
-        }
+    if (code) {
+      signIn("logto", {
+        code,
+        redirect: true,
+        callbackUrl: "/",
+      }).then(() => {
+        router.push("/");
       });
+    } else {
+      router.push("/auth/error");
     }
-  }, [status, searchParams, router]);
+  }, [searchParams, router]);
 
-  return <p>自動ログイン中...</p>;
+  return <p>認証を確認しています...</p>;
 };
 
-export default AutoLoginPage;
+export default CallbackPage;
